@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>松鼠逛逛产品溯源查询（防缓存版）</title>
+    <title>松鼠逛逛产品溯源查询</title>
     <style>
         /* ========== 原有样式完全保留 ========== */
         body {
@@ -25,18 +25,15 @@
             box-sizing: border-box;
         }
         .trace-card {
-            max-width: 820px;
+            width: 820px;
+            box-sizing: border-box;
             margin: 0 auto 30px;
             background: #fff;
             border-radius: 15px;
             box-shadow: 0 2px 12px rgba(0,0,0,0.05);
             padding: 60px;
-            display: none;
-    
-            /* 新增固定宽度相关属性 */
-            box-sizing: border-box;
-            width: 100%;
-       }
+            display: none; /* 默认隐藏，由 JS 控制显示 */
+        }
         .trace-title {
             color: #2e8b57;
             font-size: 48px;

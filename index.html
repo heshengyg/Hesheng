@@ -3,12 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>松鼠逛逛产品溯源查询</title>
-    <!-- 关键：添加微信浏览器适配的meta标签 -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
     <style>
+        /* ========== 原有样式完全保留 ========== */
         body {
             font-family: "Microsoft Yahei", Arial, sans-serif;
             background-color: #f9f9f9;
@@ -156,18 +152,6 @@
             flex-direction: column;
             align-items: center;
         }
-        /* 加载提示样式 */
-        .loading {
-            max-width: 900px;
-            margin: 0 auto;
-            color: #0d6efd;
-            text-align: center;
-            padding: 40px 20px;
-            font-size: 40px;
-            background: #fff;
-            border-radius: 15px;
-            display: block;
-        }
     </style>
 </head>
 <body>
@@ -175,9 +159,6 @@
         <input type="text" id="searchInput" placeholder="请输入商品名/编码进行搜索...">
     </div>
 
-    <!-- 加载提示 -->
-    <div class="loading" id="loading">正在加载数据，请稍候...</div>
-    
     <!-- 无结果提示 -->
     <div class="no-result" id="noResult">未找到匹配的商品信息</div>
 
@@ -195,11 +176,8 @@
 
     <script>
         // ==================== 配置 ====================
-        // 推荐替换为Gitee地址（更兼容微信）或自己的服务器地址
-        // Gitee示例：https://gitee.com/你的用户名/仓库名/raw/main/date.json
+        // 您的 JSON 公网地址（原始地址，不带缓存参数）
         const BASE_JSON_URL = 'https://raw.githubusercontent.com/heshengyg/Hesheng/refs/heads/main/date.json';
-        // 重试次数
-        const MAX_RETRY = 2;
 
         // ==================== 全局变量 ====================
         let products = []; // 存储产品数组
@@ -209,70 +187,32 @@
         const imgModal = document.getElementById('imgModal');
         const modalImg = document.getElementById('modalImg');
         const pageInfo = document.getElementById('pageInfo');
-        const loading = document.getElementById('loading');
         let currentImgGroup = null;
         let currentIndex = 0;
         const SWIPE_THRESHOLD = 50;
         let touchStartX = 0;
 
-        // ==================== 加载数据（增强版：支持重试+跨域兼容）====================
-        async function loadProducts(retryCount = 0) {
+        // ==================== 加载数据（带防缓存处理）====================
+        async function loadProducts() {
             try {
-                loading.style.display = 'block';
-                noResult.style.display = 'none';
-                
-                // 生成唯一参数，彻底避免缓存
-                const timestamp = Date.now() + Math.random();
+                // 生成一个唯一的时间戳参数，防止缓存
+                const timestamp = Date.now(); // 毫秒时间戳
                 const url = `${BASE_JSON_URL}?_t=${timestamp}`;
-                
-                // 配置fetch参数，增强跨域兼容性
-                const fetchOptions = {
-                    method: 'GET',
-                    mode: 'cors', // 显式指定跨域模式
-                    cache: 'no-cache', // 强制不缓存
-                    headers: {
-                        'Accept': 'application/json',
-                        'Cache-Control': 'no-cache'
-                    }
-                };
-
-                const response = await fetch(url, fetchOptions);
-                
+                const response = await fetch(url);
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status} ${response.statusText}`);
                 }
-                
                 const data = await response.json();
-                
-                // 检查数据结构
+                // 检查数据结构：从 data.products 获取数组
                 if (!data.products || !Array.isArray(data.products)) {
                     throw new Error('JSON 数据格式错误：缺少 products 数组');
                 }
-                
                 products = data.products;
-                loading.style.display = 'none';
-                
-                // 处理URL参数
+                // 加载完成后，只处理 URL 参数，不自动显示所有卡片
                 handleUrlSearch();
             } catch (error) {
                 console.error('加载产品数据失败：', error);
-                
-                // 重试机制
-                if (retryCount < MAX_RETRY) {
-                    console.log(`重试加载 (${retryCount + 1}/${MAX_RETRY})...`);
-                    setTimeout(() => loadProducts(retryCount + 1), 1000);
-                    return;
-                }
-                
-                // 最终失败提示（适配微信）
-                loading.style.display = 'none';
-                noResult.innerHTML = `
-                    数据加载失败：${error.message}<br>
-                    建议：<br>
-                    1. 刷新页面重试<br>
-                    2. 复制链接到手机浏览器打开<br>
-                    3. 检查JSON地址是否正确
-                `;
+                noResult.innerHTML = `数据加载失败：${error.message}<br>请检查 JSON 地址是否正确，或服务器是否允许跨域访问。`;
                 noResult.style.display = 'block';
             }
         }
@@ -283,7 +223,6 @@
                 console.error('renderCards 参数不是数组', productsToRender);
                 noResult.innerHTML = '内部错误：产品数据格式异常，无法显示。';
                 noResult.style.display = 'block';
-                loading.style.display = 'none';
                 return;
             }
             cardsContainer.innerHTML = ''; // 清空容器
@@ -348,13 +287,13 @@
 
         // ==================== 核心搜索函数 ====================
         function handleSearch(filter) {
-            loading.style.display = 'none';
-            
             if (!Array.isArray(products) || products.length === 0) {
+                // 数据未加载时，不执行搜索
                 return;
             }
 
             if (!filter || filter.trim() === '') {
+                // 搜索框为空：清空卡片，隐藏提示
                 cardsContainer.innerHTML = '';
                 noResult.style.display = 'none';
                 return;
@@ -448,20 +387,8 @@
             handleSearch(this.value.trim());
         });
 
-        // ==================== 微信浏览器特殊处理 ====================
-        // 页面加载完成后执行
-        window.addEventListener('load', function() {
-            // 强制刷新微信缓存（仅在微信环境下）
-            if (/MicroMessenger/i.test(navigator.userAgent)) {
-                console.log('检测到微信浏览器，执行缓存清理');
-                // 清除当前页面缓存
-                window.location.href = window.location.href + (window.location.search ? '&' : '?') + 'v=' + Date.now();
-            }
-        });
-
         // ==================== 启动加载 ====================
-        // 延迟加载，适配微信初始化
-        setTimeout(() => loadProducts(), 500);
+        loadProducts();
     </script>
 </body>
 </html>
